@@ -1,0 +1,812 @@
+<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>โปรแกรมคำนวณค่าน้ำมัน & สรุปทริป (Trip A Real-World)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter & Prompt for Thai -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8fafc;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+        }
+        .glass-panel-light {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.01);
+        }
+        .gradient-card-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #d946ef 100%);
+        }
+        .glow-effect-indigo {
+            box-shadow: 0 12px 30px -5px rgba(79, 70, 229, 0.35);
+        }
+        input, select, button {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
+
+    <!-- Ambient Colorful Background Orbs -->
+    <div class="fixed -top-24 -left-24 w-72 sm:w-96 h-72 sm:h-96 bg-indigo-300/30 rounded-full blur-[90px] pointer-events-none"></div>
+    <div class="fixed top-1/3 -right-24 w-72 sm:w-96 h-72 sm:h-96 bg-purple-300/30 rounded-full blur-[90px] pointer-events-none"></div>
+    <div class="fixed bottom-0 left-1/3 w-80 sm:w-[30rem] h-80 sm:h-[30rem] bg-sky-200/40 rounded-full blur-[110px] pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="w-full glass-panel-light sticky top-0 z-40 border-b border-slate-200/80 px-4 sm:px-6 py-3.5">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white p-2.5 rounded-2xl shadow-md shadow-indigo-500/20 font-bold">
+                    <i class="fa-solid fa-gas-pump text-lg sm:text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 bg-clip-text text-transparent leading-tight">
+                        Fuel Trip Dashboard
+                    </h1>
+                    <p class="text-[11px] sm:text-xs font-medium text-slate-500">จัดการค่าน้ำมันและทริปเดินทาง</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <div id="cloudStatus" class="text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl font-medium shadow-sm hidden sm:flex items-center gap-1.5" title="สถานะคลาวด์">
+                    <span class="w-2 h-2 rounded-full bg-slate-400" id="cloudStatusDot"></span>
+                    <span id="cloudStatusText">เชื่อมต่อคลาวด์...</span>
+                </div>
+
+                <button onclick="exportBackupData()" title="สำรองข้อมูล (Export JSON)" class="text-xs text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-50 border border-slate-200 p-2.5 sm:px-3 sm:py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-download text-indigo-500"></i>
+                    <span class="hidden sm:inline">สำรองข้อมูล</span>
+                </button>
+                <button onclick="triggerImport()" title="เรียกคืนข้อมูล (Import JSON)" class="text-xs text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-50 border border-slate-200 p-2.5 sm:px-3 sm:py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-upload text-teal-500"></i>
+                    <span class="hidden sm:inline">นำเข้า</span>
+                </button>
+                <input type="file" id="importFileInput" class="hidden" accept=".json" onchange="importBackupData(event)">
+                
+                <button onclick="resetCalculator()" title="รีเซ็ตค่า" class="text-xs text-slate-600 hover:text-rose-600 bg-white hover:bg-slate-50 border border-slate-200 p-2.5 sm:px-3 sm:py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-rotate-right text-rose-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="max-w-4xl w-full mx-auto px-4 sm:px-6 pt-4 relative z-20">
+        <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-200/80 backdrop-blur-md rounded-2xl shadow-inner border border-slate-300/50">
+            <button id="tabBtn1" onclick="switchTab(1)" class="py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-md">
+                <i class="fa-solid fa-calculator text-base"></i> คำนวณค่าน้ำมัน
+            </button>
+            <button id="tabBtn2" onclick="switchTab(2)" class="py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-800">
+                <i class="fa-solid fa-gas-pump text-base"></i> บันทึกค่าน้ำมัน (Trip Log)
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-5 sm:space-y-6 relative z-10 flex-grow">
+        
+        <!-- SECTION 1: คำนวณค่าน้ำมัน -->
+        <div id="tabContent1" class="space-y-5 sm:space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
+                
+                <!-- Left Column: Inputs -->
+                <div class="md:col-span-7 glass-panel-light rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 sm:space-y-5 border border-white/80">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                        <span class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm shadow-inner"><i class="fa-solid fa-sliders"></i></span>
+                        กำหนดค่าการเดินทาง
+                    </h2>
+
+                    <!-- Distance -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-slate-500 flex justify-between">
+                            <span>ระยะทางวางแผน (กิโลเมตร)</span>
+                            <span id="distanceLabel" class="text-indigo-600 font-bold">100 กม.</span>
+                        </label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3.5 text-slate-400"><i class="fa-solid fa-route"></i></span>
+                            <input type="number" id="distance" value="100" min="1" step="any" oninput="calculate()"
+                                placeholder="กรอกระยะทาง"
+                                class="w-full pl-10 pr-4 py-3 bg-slate-50/90 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 font-semibold text-base outline-none transition shadow-inner placeholder-slate-400">
+                        </div>
+                    </div>
+
+                    <!-- Fuel Efficiency -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            อัตราสิ้นเปลืองเฉลี่ย (กิโลเมตร / ลิตร)
+                        </label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3.5 text-slate-400"><i class="fa-solid fa-gauge-high"></i></span>
+                            <input type="number" id="efficiency" value="14" min="0.1" step="0.1" oninput="calculate()"
+                                placeholder="กรอกอัตราสิ้นเปลือง เช่น 14"
+                                class="w-full pl-10 pr-4 py-3 bg-slate-50/90 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 font-semibold text-base outline-none transition shadow-inner">
+                        </div>
+                    </div>
+
+                    <!-- Fuel Type Dropdown & Fuel Price -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-500">ประเภท / ยี่ห้อน้ำมัน</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3.5 text-slate-400 pointer-events-none"><i class="fa-solid fa-gas-pump"></i></span>
+                                <select id="fuelType" class="w-full pl-10 pr-8 py-3 bg-slate-50/90 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 font-semibold text-base outline-none transition shadow-inner appearance-none cursor-pointer">
+                                    <option value="แก๊สโซฮอล์ 95">แก๊สโซฮอล์ 95</option>
+                                    <option value="แก๊สโซฮอล์ 91">แก๊สโซฮอล์ 91</option>
+                                    <option value="แก๊สโซฮอล์ E20">แก๊สโซฮอล์ E20</option>
+                                    <option value="แก๊สโซฮอล์ E85">แก๊สโซฮอล์ E85</option>
+                                    <option value="เบนซิน 95">เบนซิน 95</option>
+                                    <option value="ดีเซล B7 / พรีเมียม">ดีเซล B7 / พรีเมียม</option>
+                                    <option value="ดีเซล">ดีเซล</option>
+                                </select>
+                                <span class="absolute right-3.5 text-slate-400 pointer-events-none"><i class="fa-solid fa-chevron-down text-xs"></i></span>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-500">ราคาน้ำมัน (บาท / ลิตร)</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3.5 text-slate-400"><i class="fa-solid fa-baht-sign"></i></span>
+                                <input type="number" id="fuelPrice" value="38.50" min="0.1" step="0.01" oninput="calculate()"
+                                    placeholder="ระบุราคาต่อลิตร"
+                                    class="w-full pl-10 pr-4 py-3 bg-slate-50/90 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 font-semibold text-base outline-none transition shadow-inner">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Results Card -->
+                <div class="md:col-span-5 flex flex-col justify-between space-y-4">
+                    <div class="relative gradient-card-primary rounded-3xl p-6 sm:p-7 flex flex-col justify-between shadow-xl glow-effect-indigo text-white overflow-hidden h-full border border-white/20 min-h-[220px]">
+                        <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl pointer-events-none">
+                            <i class="fa-solid fa-calculator"></i>
+                        </div>
+                        
+                        <div>
+                            <span class="inline-flex items-center gap-1.5 bg-white/20 border border-white/30 text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 backdrop-blur-md shadow-sm">
+                                <span class="w-2 h-2 rounded-full bg-emerald-300 animate-ping"></span>
+                                ประมาณการล่วงหน้า
+                            </span>
+                            <p class="text-indigo-100 text-xs sm:text-sm font-medium">ค่าน้ำมันโดยประมาณ</p>
+                            <div class="flex items-baseline gap-2 mt-1 sm:mt-2">
+                                <span id="totalCost" class="text-4xl sm:text-5xl font-black tracking-tight drop-shadow-md">0.00</span>
+                                <span class="text-lg sm:text-xl font-bold text-indigo-100">บาท</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 sm:mt-8 pt-4 sm:pt-5 border-t border-white/20 space-y-2.5 sm:space-y-3">
+                            <div class="flex justify-between items-center text-xs sm:text-sm">
+                                <span class="text-indigo-100 font-medium">ปริมาณน้ำมันที่ใช้</span>
+                                <span class="font-bold text-white text-sm sm:text-base"><span id="totalFuel">0.00</span> ลิตร</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs sm:text-sm">
+                                <span class="text-indigo-100 font-medium">ค่าใช้จ่ายต่อกิโลเมตร</span>
+                                <span class="font-bold text-white text-sm sm:text-base"><span id="costPerKm">0.00</span> บาท/กม.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECTION 2: บันทึกค่าน้ำมัน (Trip Log) -->
+        <div id="tabContent2" class="space-y-5 sm:space-y-6 hidden">
+            <div class="glass-panel-light rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 sm:space-y-5 border border-white/80">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg font-bold shadow-inner flex-shrink-0">
+                            <i class="fa-solid fa-gas-pump"></i>
+                        </span>
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">
+                                บันทึกเติมน้ำมันระหว่างทาง (Trip A Log)
+                            </h2>
+                            <p class="text-[11px] sm:text-xs text-slate-500 font-medium">บันทึกเมื่อแวะเติมน้ำมันจริงระหว่างเดินทาง (Set Trip A = 0 ก่อนออก)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 self-end sm:self-auto">
+                        <button onclick="clearTripLog()" class="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 rounded-xl transition flex items-center gap-1.5 active:scale-95">
+                            <i class="fa-solid fa-trash-can"></i> ล้างทริป
+                        </button>
+                        <button onclick="copyTripSummary()" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-xl transition flex items-center gap-1.5 active:scale-95">
+                            <i class="fa-regular fa-copy"></i> คัดลอกสรุปทริป
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Initial Fuel Before Start Input Bar -->
+                <div class="bg-indigo-50/70 border border-indigo-100 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                            <i class="fa-solid fa-car"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-indigo-900">น้ำมันตั้งต้นในถังก่อนออกเดินทาง</p>
+                            <p class="text-[10px] text-indigo-600">ช่วยให้คำนวณต้นทุนสะสมแม่นยำขึ้นแม้ไมล์เริ่มต้นจะไม่เต็มถัง</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="initialFuelLitres" value="0" min="0" step="0.1" oninput="saveToLocalStorage(); renderTripLog();" placeholder="เช่น 20" class="w-24 px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-slate-800 text-center outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        <span class="text-xs font-semibold text-indigo-700">ลิตร</span>
+                    </div>
+                </div>
+
+                <!-- Total Trip Summary Colorful Cards -->
+                <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
+                    <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 sm:p-4 rounded-2xl text-white shadow-md">
+                        <span class="text-[10px] sm:text-xs text-indigo-100 font-medium block truncate">รวมจ่ายค่าน้ำมัน</span>
+                        <div class="text-base sm:text-2xl font-black mt-0.5 sm:mt-1"><span id="tripTotalCost">0.00</span> <span class="text-[10px] sm:text-xs font-medium text-indigo-200">บ.</span></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-sky-400 to-blue-600 p-3 sm:p-4 rounded-2xl text-white shadow-md">
+                        <span class="text-[10px] sm:text-xs text-sky-100 font-medium block truncate">ระยะทาง Trip A รวม</span>
+                        <div class="text-base sm:text-2xl font-black mt-0.5 sm:mt-1"><span id="tripTotalDistance">0</span> <span class="text-[10px] sm:text-xs font-medium text-sky-200">กม.</span></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-teal-400 to-emerald-600 p-3 sm:p-4 rounded-2xl text-white shadow-md">
+                        <span class="text-[10px] sm:text-xs text-teal-100 font-medium block truncate">น้ำมันที่ใช้รวมจริง</span>
+                        <div class="text-base sm:text-2xl font-black mt-0.5 sm:mt-1"><span id="tripTotalFuel">0.00</span> <span class="text-[10px] sm:text-xs font-medium text-teal-200">ลิตร</span></div>
+                    </div>
+                </div>
+
+                <!-- Form: Add Real-world Refuel Log -->
+                <div class="bg-slate-50/90 p-4 border border-slate-200/80 rounded-2xl space-y-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 block">กรอกข้อมูล ณ จุดที่แวะเติมน้ำมัน (คำนวณให้อัตโนมัติเมื่อใส่ 2 ใน 3 ค่า)</span>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+                        <div class="space-y-1 sm:col-span-2 lg:col-span-1">
+                            <label class="text-[11px] font-semibold text-slate-500">สถานที่ / ปั๊มน้ำมัน</label>
+                            <input type="text" id="logLocation" placeholder="เช่น PTT บางปะอิน" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-semibold text-slate-500">ไมล์ Trip A (กม.)</label>
+                            <input type="number" id="logTripDistance" placeholder="เช่น 180" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-semibold text-slate-500">อัตราสิ้นเปลือง</label>
+                            <input type="number" id="logEfficiency" placeholder="เช่น 13.5" step="0.1" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-semibold text-slate-500">ราคาน้ำมัน ณ จุดเติม (บ./ลิตร)</label>
+                            <input type="number" id="logPricePerLitre" placeholder="เช่น 38.50" step="0.01" oninput="autoCalcLogFields('price')" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-semibold text-slate-500">จำนวนเงินที่จ่าย (บาท)</label>
+                            <input type="number" id="logCost" placeholder="เช่น 750" step="0.01" oninput="autoCalcLogFields('cost')" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-semibold text-slate-500">จำนวนลิตรที่ได้ (ลิตร)</label>
+                            <input type="number" id="logLitres" placeholder="เช่น 19.48" step="0.01" oninput="autoCalcLogFields('litres')" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                        </div>
+                        <div class="space-y-1 flex items-end">
+                        <button onclick="addManualLog()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-1.5 active:scale-95">
+                            <i class="fa-solid fa-plus"></i> เพิ่มรายการ
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table of Entries -->
+            <div class="overflow-x-auto rounded-2xl border border-slate-200/80 -mx-1 sm:mx-0">
+                <table class="w-full text-left text-xs text-slate-700 bg-white">
+                    <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-3 sm:px-4">#</th>
+                            <th class="py-3 px-3 sm:px-4">สถานที่ / ปั๊มน้ำมัน</th>
+                            <th class="py-3 px-3 sm:px-4 text-right">ไมล์ Trip A</th>
+                            <th class="py-3 px-3 sm:px-4 text-right">อัตราสิ้นเปลือง</th>
+                            <th class="py-3 px-3 sm:px-4 text-right">จำนวนลิตร</th>
+                            <th class="py-3 px-3 sm:px-4 text-right">ราคา/ลิตรจริง</th>
+                            <th class="py-3 px-3 sm:px-4 text-right">จำนวนเงิน</th>
+                            <th class="py-3 px-3 sm:px-4 text-center">ลบ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tripLogTable" class="divide-y divide-slate-100 font-medium">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+                <div id="emptyLogState" class="text-center py-8 sm:py-10 text-slate-400 text-xs bg-white">
+                    ยังไม่มีบันทึกการเติมน้ำมันระหว่างทาง สามารถกรอกข้อมูลด้านบนแล้วกดบันทึกได้เลย
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-6 right-6 left-6 sm:left-auto bg-slate-900/95 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center justify-center sm:justify-start gap-3 transform translate-y-24 opacity-0 transition-all duration-300 z-50 text-sm backdrop-blur-md border border-slate-700 pointer-events-none">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+    <span id="toastMessage">คัดลอกข้อมูลเรียบร้อยแล้ว</span>
+</div>
+
+<!-- Footer -->
+<footer class="text-center py-4 text-[11px] sm:text-xs text-slate-500 border-t border-slate-200/80 bg-white/70 backdrop-blur-md mt-6">
+    &copy; 2026 Fuel Trip Dashboard | Cloud Synced & Optimized for Vercel
+</footer>
+
+<!-- JavaScript Logic & Firebase Cloud Sync Integration -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Application state
+    let tripLogs = [];
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let isCloudUpdating = false;
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'fuel-trip-app';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+        apiKey: "demo-api-key",
+        authDomain: "demo-app.firebaseapp.com",
+        projectId: "demo-app",
+        storageBucket: "demo-app.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:demo"
+    };
+
+    // UI Tab Navigation
+    window.switchTab = function(tabNumber) {
+        const tab1 = document.getElementById('tabContent1');
+        const tab2 = document.getElementById('tabContent2');
+        const btn1 = document.getElementById('tabBtn1');
+        const btn2 = document.getElementById('tabBtn2');
+
+        if (tabNumber === 1) {
+            tab1.classList.remove('hidden');
+            tab2.classList.add('hidden');
+            btn1.className = "py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-md";
+            btn2.className = "py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-800";
+        } else {
+            tab1.classList.add('hidden');
+            tab2.classList.remove('hidden');
+            btn2.className = "py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-md";
+            btn1.className = "py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-800";
+        }
+    };
+
+    // Auto-calculate Trip Log input fields (Price per Litre, Total Cost, Litres)
+    window.autoCalcLogFields = function(changedSource) {
+        const priceInput = document.getElementById('logPricePerLitre');
+        const costInput = document.getElementById('logCost');
+        const litresInput = document.getElementById('logLitres');
+
+        const price = parseFloat(priceInput.value) || 0;
+        const cost = parseFloat(costInput.value) || 0;
+        const litres = parseFloat(litresInput.value) || 0;
+
+        if (changedSource === 'price') {
+            if (price > 0 && cost > 0) {
+                litresInput.value = (cost / price).toFixed(2);
+            } else if (price > 0 && litres > 0) {
+                costInput.value = (price * litres).toFixed(2);
+            }
+        } else if (changedSource === 'cost') {
+            if (cost > 0 && price > 0) {
+                litresInput.value = (cost / price).toFixed(2);
+            } else if (cost > 0 && litres > 0) {
+                priceInput.value = (cost / litres).toFixed(2);
+            }
+        } else if (changedSource === 'litres') {
+            if (litres > 0 && price > 0) {
+                costInput.value = (price * litres).toFixed(2);
+            } else if (litres > 0 && cost > 0) {
+                priceInput.value = (cost / litres).toFixed(2);
+            }
+        }
+    };
+
+    // Save and Load Local Storage & Sync Cloud
+    window.saveToLocalStorage = function() {
+        const dataToSave = {
+            distance: document.getElementById('distance').value,
+            efficiency: document.getElementById('efficiency').value,
+            fuelPrice: document.getElementById('fuelPrice').value,
+            fuelType: document.getElementById('fuelType').value,
+            initialFuelLitres: document.getElementById('initialFuelLitres').value,
+            tripLogs: tripLogs
+        };
+        localStorage.setItem('fuel_calc_data_v4', JSON.stringify(dataToSave));
+
+        if (window.saveToCloud) {
+            window.saveToCloud();
+        }
+    };
+
+    function loadFromLocalStorage() {
+        const saved = localStorage.getItem('fuel_calc_data_v4');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.distance) document.getElementById('distance').value = parsed.distance;
+                if (parsed.efficiency) document.getElementById('efficiency').value = parsed.efficiency;
+                if (parsed.fuelPrice) document.getElementById('fuelPrice').value = parsed.fuelPrice;
+                if (parsed.fuelType) document.getElementById('fuelType').value = parsed.fuelType;
+                if (parsed.initialFuelLitres) document.getElementById('initialFuelLitres').value = parsed.initialFuelLitres;
+                if (Array.isArray(parsed.tripLogs)) tripLogs = parsed.tripLogs;
+            } catch(e) {
+                console.error("Error loading local storage", e);
+            }
+        }
+    }
+
+    // Main Calculator logic
+    window.calculate = function(skipSave = false) {
+        const distance = parseFloat(document.getElementById('distance').value) || 0;
+        const efficiency = parseFloat(document.getElementById('efficiency').value) || 1;
+        const fuelPrice = parseFloat(document.getElementById('fuelPrice').value) || 0;
+
+        document.getElementById('distanceLabel').innerText = distance.toLocaleString() + ' กม.';
+
+        const totalFuel = efficiency > 0 ? (distance / efficiency) : 0;
+        const totalCost = totalFuel * fuelPrice;
+        const costPerKm = distance > 0 ? totalCost / distance : 0;
+
+        document.getElementById('totalCost').innerText = totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('totalFuel').innerText = totalFuel.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('costPerKm').innerText = costPerKm.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        if (!skipSave) {
+            window.saveToLocalStorage();
+        }
+    };
+
+    window.resetCalculator = function() {
+        document.getElementById('distance').value = 100;
+        document.getElementById('efficiency').value = 14;
+        document.getElementById('fuelPrice').value = 38.50;
+        document.getElementById('fuelType').selectedIndex = 0;
+        document.getElementById('initialFuelLitres').value = 0;
+        window.calculate();
+        window.showToast('รีเซ็ตค่าเรียบร้อยแล้ว');
+    };
+
+    // Trip Log Functions
+    window.addManualLog = function() {
+        const locationInput = document.getElementById('logLocation');
+        const tripDistInput = document.getElementById('logTripDistance');
+        const effInput = document.getElementById('logEfficiency');
+        const pricePerLitreInput = document.getElementById('logPricePerLitre');
+        const costInput = document.getElementById('logCost');
+        const litresInput = document.getElementById('logLitres');
+
+        const locationName = locationInput.value.trim() || 'ไม่ระบุสถานที่';
+        const tripDistance = parseFloat(tripDistInput.value) || 0;
+        const efficiency = parseFloat(effInput.value) || 0;
+        const pricePerLitre = parseFloat(pricePerLitreInput.value) || 0;
+        const cost = parseFloat(costInput.value) || 0;
+        const litres = parseFloat(litresInput.value) || 0;
+
+        if (tripDistance <= 0 || cost <= 0 || litres <= 0) {
+            window.showToast('กรุณากรอกข้อมูล Trip A, จำนวนเงิน และจำนวนลิตรให้ครบถ้วน', 'warning');
+            return;
+        }
+
+        const actualPricePerLitre = pricePerLitre > 0 ? pricePerLitre : (cost / litres);
+
+        const item = {
+            id: Date.now(),
+            location: locationName,
+            tripDistance: tripDistance,
+            efficiency: efficiency,
+            pricePerLitre: actualPricePerLitre,
+            cost: cost,
+            litres: litres
+        };
+
+        tripLogs.push(item);
+        tripLogs.sort((a, b) => a.tripDistance - b.tripDistance);
+
+        window.renderTripLog();
+        window.saveToLocalStorage();
+
+        locationInput.value = '';
+        tripDistInput.value = '';
+        effInput.value = '';
+        pricePerLitreInput.value = '';
+        costInput.value = '';
+        litresInput.value = '';
+        window.showToast('บันทึกข้อมูลการเติมน้ำมันสำเร็จ');
+    };
+
+    window.deleteLogItem = function(id) {
+        tripLogs = tripLogs.filter(item => item.id !== id);
+        window.renderTripLog();
+        window.saveToLocalStorage();
+        window.showToast('ลบรายการเรียบร้อย');
+    };
+
+    window.clearTripLog = function() {
+        if (tripLogs.length === 0) return;
+        tripLogs = [];
+        window.renderTripLog();
+        window.saveToLocalStorage();
+        window.showToast('ล้างบันทึกการเดินทางทั้งหมดแล้ว');
+    };
+
+    window.renderTripLog = function() {
+        const tbody = document.getElementById('tripLogTable');
+        const emptyState = document.getElementById('emptyLogState');
+        if (!tbody || !emptyState) return;
+
+        tbody.innerHTML = '';
+
+        if (tripLogs.length === 0) {
+            emptyState.classList.remove('hidden');
+        } else {
+            emptyState.classList.add('hidden');
+        }
+
+        let totalCost = 0;
+        let maxDistance = 0;
+        let totalFuelAdded = 0;
+
+        tripLogs.forEach((item, index) => {
+            totalCost += item.cost;
+            totalFuelAdded += item.litres;
+            if (item.tripDistance > maxDistance) {
+                maxDistance = item.tripDistance;
+            }
+
+            const pricePerLitre = item.pricePerLitre > 0 ? item.pricePerLitre : (item.litres > 0 ? (item.cost / item.litres) : 0);
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+            tr.innerHTML = `
+                <td class="py-3 px-3 sm:px-4 text-slate-400 font-mono">${index + 1}</td>
+                <td class="py-3 px-3 sm:px-4 font-semibold text-slate-800">${escapeHtml(item.location)}</td>
+                <td class="py-3 px-3 sm:px-4 text-right font-mono font-bold text-slate-800">${item.tripDistance.toLocaleString()} กม.</td>
+                <td class="py-3 px-3 sm:px-4 text-right font-mono text-slate-600">${item.efficiency > 0 ? item.efficiency.toFixed(1) + ' กม./ลิตร' : '-'}</td>
+                <td class="py-3 px-3 sm:px-4 text-right font-mono text-teal-600 font-semibold">${item.litres.toFixed(2)} ลิตร</td>
+                <td class="py-3 px-3 sm:px-4 text-right font-mono text-amber-600 font-bold">${pricePerLitre.toFixed(2)} บ./ลิตร</td>
+                <td class="py-3 px-3 sm:px-4 text-right font-mono font-bold text-indigo-600">${item.cost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</td>
+                <td class="py-3 px-3 sm:px-4 text-center">
+                    <button onclick="deleteLogItem(${item.id})" class="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('tripTotalCost').innerText = totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('tripTotalDistance').innerText = maxDistance.toLocaleString('th-TH');
+        document.getElementById('tripTotalFuel').innerText = totalFuelAdded.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    function escapeHtml(text) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    window.copyTripSummary = function() {
+        if (tripLogs.length === 0) {
+            window.showToast('ยังไม่มีรายการในบันทึกการเดินทาง', 'warning');
+            return;
+        }
+
+        let totalCost = 0;
+        let maxDistance = 0;
+        let totalFuel = 0;
+        const initialFuel = parseFloat(document.getElementById('initialFuelLitres').value) || 0;
+
+        let text = `🗺️ สรุปทริปเดินทางไกล (Trip A Log)\n`;
+        text += `====================================\n`;
+        if (initialFuel > 0) {
+            text += `⛽ น้ำมันตั้งต้นก่อนออก: ${initialFuel} ลิตร\n`;
+        }
+
+        tripLogs.forEach((item, index) => {
+            totalCost += item.cost;
+            totalFuel += item.litres;
+            if (item.tripDistance > maxDistance) maxDistance = item.tripDistance;
+            const pLitre = item.pricePerLitre > 0 ? item.pricePerLitre.toFixed(2) : (item.litres > 0 ? (item.cost / item.litres).toFixed(2) : '0');
+
+            text += `${index + 1}. [${item.location}] ไมล์: ${item.tripDistance} กม.\n`;
+            text += `   - เติม: ${item.litres.toFixed(2)} ลิตร (ราคาจริง: ${pLitre} บ./ลิตร) | จ่าย: ${item.cost.toFixed(2)} บ.\n`;
+        });
+
+        text += `====================================\n`;
+        text += `💰 รวมจ่ายค่าน้ำมัน: ${totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท\n`;
+        text += `📍 ระยะทางรวมใน Trip A: ${maxDistance.toLocaleString()} กม.\n`;
+        text += `🛢️ น้ำมันที่เติมรวม: ${totalFuel.toFixed(2)} ลิตร\n`;
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            window.showToast('คัดลอกสรุปรายการเดินทางแล้ว');
+        } catch (err) {
+            window.showToast('ไม่สามารถคัดลอกได้', 'warning');
+        }
+        document.body.removeChild(textArea);
+    };
+
+    window.exportBackupData = function() {
+        const backupData = {
+            version: "4.0",
+            exportedAt: new Date().toISOString(),
+            distance: document.getElementById('distance').value,
+            efficiency: document.getElementById('efficiency').value,
+            fuelPrice: document.getElementById('fuelPrice').value,
+            fuelType: document.getElementById('fuelType').value,
+            initialFuelLitres: document.getElementById('initialFuelLitres').value,
+            tripLogs: tripLogs
+        };
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `fuel_trip_log_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        window.showToast('ส่งออกไฟล์สำรองข้อมูล (JSON) สำเร็จ');
+    };
+
+    window.triggerImport = function() {
+        document.getElementById('importFileInput').click();
+    };
+
+    window.importBackupData = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (imported.distance) document.getElementById('distance').value = imported.distance;
+                if (imported.efficiency) document.getElementById('efficiency').value = imported.efficiency;
+                if (imported.fuelPrice) document.getElementById('fuelPrice').value = imported.fuelPrice;
+                if (imported.fuelType) document.getElementById('fuelType').value = imported.fuelType;
+                if (imported.initialFuelLitres) document.getElementById('initialFuelLitres').value = imported.initialFuelLitres;
+                if (Array.isArray(imported.tripLogs)) {
+                    tripLogs = imported.tripLogs;
+                    window.renderTripLog();
+                }
+                window.calculate();
+                window.showToast('นำเข้าข้อมูลสำเร็จ');
+            } catch (err) {
+                window.showToast('รูปแบบไฟล์สำรองไม่ถูกต้อง', 'warning');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    };
+
+    window.showToast = function(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toastIcon');
+        
+        if (type === 'warning') {
+            toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+        } else {
+            toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+        }
+        
+        document.getElementById('toastMessage').innerText = message;
+        toast.classList.remove('translate-y-24', 'opacity-0');
+        setTimeout(() => {
+            toast.classList.add('translate-y-24', 'opacity-0');
+        }, 3000);
+    };
+
+    // Firebase Cloud Sync initialization
+    async function initCloudSync() {
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    updateCloudStatus('connected', 'คลาวด์เชื่อมต่อแล้ว');
+                    listenToCloudChanges();
+                } else {
+                    updateCloudStatus('disconnected', 'ไม่ได้เชื่อมต่อ');
+                }
+            });
+        } catch (err) {
+            console.warn("Firebase fallback to local:", err);
+            updateCloudStatus('local', 'โหมดในเครื่อง');
+        }
+    }
+
+    function updateCloudStatus(status, text) {
+        const dot = document.getElementById('cloudStatusDot');
+        const statusText = document.getElementById('cloudStatusText');
+        if (!dot || !statusText) return;
+
+        statusText.innerText = text;
+        if (status === 'connected') {
+            dot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+        } else if (status === 'saving') {
+            dot.className = "w-2 h-2 rounded-full bg-amber-500 animate-ping";
+        } else {
+            dot.className = "w-2 h-2 rounded-full bg-slate-400";
+        }
+    }
+
+    function listenToCloudChanges() {
+        if (!db || !currentUser) return;
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'fuel_trip_data_v4', 'main_trip');
+
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists() && !isCloudUpdating) {
+                const data = docSnap.data();
+                if (data) {
+                    if (data.distance) document.getElementById('distance').value = data.distance;
+                    if (data.efficiency) document.getElementById('efficiency').value = data.efficiency;
+                    if (data.fuelPrice) document.getElementById('fuelPrice').value = data.fuelPrice;
+                    if (data.fuelType) document.getElementById('fuelType').value = data.fuelType;
+                    if (data.initialFuelLitres) document.getElementById('initialFuelLitres').value = data.initialFuelLitres;
+                    if (Array.isArray(data.tripLogs)) {
+                        tripLogs = data.tripLogs;
+                        window.renderTripLog();
+                    }
+                    window.calculate(true);
+                }
+            }
+        }, (error) => {
+            console.warn("Cloud snapshot error:", error);
+        });
+    }
+
+    window.saveToCloud = async function() {
+        if (!db || !currentUser) return;
+        isCloudUpdating = true;
+        updateCloudStatus('saving', 'กำลังซิงก์...');
+
+        try {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'fuel_trip_data_v4', 'main_trip');
+            await setDoc(docRef, {
+                distance: document.getElementById('distance').value,
+                efficiency: document.getElementById('efficiency').value,
+                fuelPrice: document.getElementById('fuelPrice').value,
+                fuelType: document.getElementById('fuelType').value,
+                initialFuelLitres: document.getElementById('initialFuelLitres').value,
+                tripLogs: tripLogs || [],
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            updateCloudStatus('connected', 'ซิงก์คลาวด์แล้ว');
+        } catch (err) {
+            console.warn("Save to cloud error:", err);
+            updateCloudStatus('disconnected', 'ผิดพลาด');
+        } finally {
+            setTimeout(() => { isCloudUpdating = false; }, 500);
+        }
+    };
+
+    // Initialize application on load
+    window.addEventListener('load', () => {
+        loadFromLocalStorage();
+        window.calculate();
+        window.renderTripLog();
+        initCloudSync();
+    });
+</script>
+</body>
+</html>
